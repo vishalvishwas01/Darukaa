@@ -4,39 +4,40 @@ Darukaa.Earth is a geospatial data analytics platform for coordinating restorati
 
 ## Architecture
 
-Darukaa.Earth follows a modern decoupled three-tier architecture:
+Darukaa.Earth follows a modern decoupled three-tier architecture.
 
 ### Request Flow
 
-1. **Authentication Flow**:
-   - User registers at POST /api/v1/auth/register (no token required)
-   - User logs in at POST /api/v1/auth/login (no token required)
-   - Backend returns JWT access token
-   - Frontend includes token in Authorization: Bearer <token> header
-   - Backend validates JWT on each protected request
-   - Protected endpoints return 401 if token is missing/invalid
+1. **Authentication flow**
+   - Users register with `POST /api/v1/auth/register`.
+   - Users log in with `POST /api/v1/auth/login`.
+   - The backend returns a JWT access token.
+   - The frontend sends the token using the `Authorization: Bearer <token>` header.
+   - The backend validates the JWT on protected requests.
+   - Protected endpoints return `401` when the token is missing or invalid.
 
-2. **API Request Flow**:
-   - React UI calls API functions in client/src/api/
-   - Axios sends HTTPS requests to FastAPI backend
-   - FastAPI validates data with Pydantic, verifies auth/ownership
-   - SQLAlchemy/GeoAlchemy2 executes queries
-   - PostGIS handles spatial operations
-   - Backend returns JSON to React
+2. **API request flow**
+   - The React UI calls API functions in `client/src/api/`.
+   - Axios sends requests to the FastAPI backend.
+   - FastAPI validates payloads with Pydantic and verifies authentication and ownership.
+   - SQLAlchemy and GeoAlchemy2 execute database queries.
+   - PostGIS handles spatial operations.
+   - The backend returns JSON responses to React.
 
-3. **Data Flow**:
-   - Site boundaries: GeoJSON Polygon -> PostGIS GEOMETRY (SRID 4326)
-   - Metrics: Numeric values with units, aggregated for analytics
+3. **Data flow**
+   - Site boundaries are converted from GeoJSON polygons into PostGIS geometry with SRID 4326.
+   - Metrics are stored as numeric values with units and aggregated for analytics.
 
 ## Tech Stack
 
-- **Frontend**: React 19, React Router 7, Vite 8, Tailwind CSS 4, Mapbox GL JS 3, Chart.js 4, Axios
-- **Backend**: FastAPI, SQLAlchemy 2, GeoAlchemy2, PostgreSQL/PostGIS, Alembic, Pydantic, python-jose, bcrypt, Uvicorn
-- **Testing**: Vitest, React Testing Library, jsdom; unittest
-- **Infrastructure**: Node.js 20, Python 3.13, PostgreSQL 16, PostGIS 3.4, Docker, GitHub Actions
+- **Frontend:** React 19, React Router 7, Vite 8, Tailwind CSS 4, Mapbox GL JS 3, Chart.js 4, Axios
+- **Backend:** FastAPI, SQLAlchemy 2, GeoAlchemy2, PostgreSQL/PostGIS, Alembic, Pydantic, python-jose, bcrypt, Uvicorn
+- **Testing:** Vitest, React Testing Library, jsdom, unittest
+- **Infrastructure:** Node.js 20, Python 3.13, PostgreSQL 16, PostGIS 3.4, Docker, GitHub Actions
 
 ## Project Structure
 
+```text
 Darukaa/
 ├── .github/workflows/ci.yml
 ├── client/.env.example
@@ -48,35 +49,47 @@ Darukaa/
 ├── server/requirements.txt
 ├── docker-compose.yml
 └── README.md
+```
 
 ## Database and Schema
 
-PostgreSQL 16 + PostGIS 3.4. Alembic migrations in server/migrations/versions/.
+Darukaa.Earth uses PostgreSQL 16 with PostGIS 3.4. Alembic migrations are stored in `server/migrations/versions/`.
 
 ### Entities
-- **Users**: id (UUID), name, email (unique), password_hash (bcrypt), role, is_active, timestamps
-- **Projects**: id (UUID), owner_id (UUID, FK users), name, description, project_type, status (active/archived/draft), timestamps
-- **Sites**: id (UUID), project_id (UUID, FK projects, cascade), name, description, boundary (PostGIS POLYGON SRID 4326), area_hectares (numeric 12,4), timestamps
-- **Site Metrics**: id (UUID), site_id (UUID, FK sites, cascade), metric_name, metric_value (numeric 15,4), unit, recorded_at, created_at
+
+- **Users:** `id` (UUID), `name`, `email` (unique), `password_hash` (bcrypt), `role`, `is_active`, timestamps
+- **Projects:** `id` (UUID), `owner_id` (UUID, foreign key to users), `name`, `description`, `project_type`, `status` (`active`/`archived`/`draft`), timestamps
+- **Sites:** `id` (UUID), `project_id` (UUID, foreign key to projects with cascade), `name`, `description`, `boundary` (PostGIS polygon, SRID 4326), `area_hectares` (numeric 12,4), timestamps
+- **Site metrics:** `id` (UUID), `site_id` (UUID, foreign key to sites with cascade), `metric_name`, `metric_value` (numeric 15,4), `unit`, `recorded_at`, `created_at`
 
 ## Local Setup
 
 ### Prerequisites
-Node.js 20+, Python 3.13+, PostgreSQL 16+PostGIS 3.4, npm
 
-### 1. Clone
-`ash
-git clone https://github.com/vishalvishwas01/Darukaa.git && cd Darukaa
-`
+- Node.js 20+
+- Python 3.13+
+- PostgreSQL 16 with PostGIS 3.4
+- npm
 
-### 2. Frontend Dependencies
-`ash
-cd client && npm ci
-`
+### 1. Clone the repository
 
-### 3. Backend Dependencies
-`ash
-cd ../server && python -m venv .venv
+```bash
+git clone https://github.com/vishalvishwas01/Darukaa.git
+cd Darukaa
+```
+
+### 2. Install frontend dependencies
+
+```bash
+cd client
+npm ci
+```
+
+### 3. Install backend dependencies
+
+```bash
+cd ../server
+python -m venv .venv
 
 # Windows
 .venv\Scripts\activate
@@ -85,184 +98,233 @@ cd ../server && python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-`
+```
 
-### 4. Environment Configuration
+### 4. Configure environment variables
 
-Copy example files:
-`ash
+Copy the example files:
+
+```bash
 # Backend
 cd server
-copy .env.example .env        # Windows
-# cp .env.example .env        # Linux/macOS
+
+# Windows
+copy .env.example .env
+
+# Linux/macOS
+cp .env.example .env
 
 # Frontend
 cd ../client
-copy .env.example .env        # Windows
-# cp .env.example .env        # Linux/macOS
-`
 
-**Backend .env variables** (see server/.env.example):
+# Windows
+copy .env.example .env
 
-| Variable | Required | Description |
-|----------|----------|------------- |
-| APP_NAME | No | Application name |
-| APP_VERSION | No | Version string |
-| DEBUG | No | Debug mode |
-| DATABASE_URL | Yes | PostgreSQL+PostGIS connection URL |
-| FRONTEND_URL | No | Frontend URL for CORS |
-| JWT_SECRET_KEY | Yes | JWT secret (min 32 chars) |
-| JWT_ALGORITHM | No | JWT algorithm (default HS256) |
-| ACCESS_TOKEN_EXPIRE_MINUTES | No | Token expiry in minutes |
+# Linux/macOS
+cp .env.example .env
+```
 
-**Frontend .env variables** (see client/.env.example):
+#### Backend environment variables
+
+See `server/.env.example`.
 
 | Variable | Required | Description |
-|----------|----------|------------- |
-| VITE_API_BASE_URL | Yes | Backend API URL (default: http://localhost:8000/api/v1) |
-| VITE_MAPBOX_ACCESS_TOKEN | Yes | Mapbox public token for maps |
+|---|---:|---|
+| `APP_NAME` | No | Application name |
+| `APP_VERSION` | No | Version string |
+| `DEBUG` | No | Debug mode |
+| `DATABASE_URL` | Yes | PostgreSQL/PostGIS connection URL |
+| `FRONTEND_URL` | No | Frontend URL used for CORS |
+| `JWT_SECRET_KEY` | Yes | JWT secret, minimum 32 characters |
+| `JWT_ALGORITHM` | No | JWT algorithm, default `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token expiry in minutes |
 
-**Docker database defaults** (from docker-compose.yml):
-- Database: darukaa_db
-- User: darukaa_user
-- Password: darukaa_password
-- Port: 5432
-- DATABASE_URL: postgresql+psycopg://darukaa_user:darukaa_password@localhost:5432/darukaa_db
+#### Frontend environment variables
 
-Never commit .env files. Use strong random secrets in production.
+See `client/.env.example`.
 
-### 5. Database
+| Variable | Required | Description |
+|---|---:|---|
+| `VITE_API_BASE_URL` | Yes | Backend API URL, for example `http://localhost:8000/api/v1` |
+| `VITE_MAPBOX_ACCESS_TOKEN` | Yes | Public Mapbox token used by the map interface |
 
-**Option A - Docker:**
-`ash
-cd .. && docker-compose up -d
-`
+#### Docker database defaults
 
-**Option B - Manual:**
-1. Install PostgreSQL 16 + PostGIS 3.4
-2. Create database/user, grant privileges
-3. Enable PostGIS: CREATE EXTENSION postgis;
+The default values in `docker-compose.yml` are:
 
-### 6. Migrations
-`ash
-cd server && alembic upgrade head
-`
+- Database: `darukaa_db`
+- User: `darukaa_user`
+- Password: `darukaa_password`
+- Port: `5432`
+- Connection URL: `postgresql+psycopg://darukaa_user:darukaa_password@localhost:5432/darukaa_db`
 
-### 7. Start Backend
-`ash
-cd server && uvicorn app.main:app --reload --port 8000
-`
-API: http://localhost:8000
-Docs: http://localhost:8000/docs
+> Never commit `.env` files. Use strong, randomly generated secrets in production.
 
-### 8. Start Frontend
-`ash
-cd client && npm run dev
-`
-Frontend: http://localhost:5173
+### 5. Start the database
+
+#### Option A: Docker
+
+```bash
+cd ..
+docker compose up -d
+```
+
+#### Option B: Manual installation
+
+1. Install PostgreSQL 16 and PostGIS 3.4.
+2. Create the database and user, then grant the required privileges.
+3. Enable PostGIS:
+
+```sql
+CREATE EXTENSION postgis;
+```
+
+### 6. Run migrations
+
+```bash
+cd server
+alembic upgrade head
+```
+
+### 7. Start the backend
+
+```bash
+cd server
+uvicorn app.main:app --reload --port 8000
+```
+
+- API: http://localhost:8000
+- API docs: http://localhost:8000/docs
+
+### 8. Start the frontend
+
+```bash
+cd client
+npm run dev
+```
+
+- Frontend: http://localhost:5173
 
 ## API Overview
 
-Base URL: /api/v1
+Base URL: `/api/v1`
 
 ### Authentication
-- POST /auth/register - No token required - Create account
-- POST /auth/login - No token required - Get JWT token
-- GET /auth/me - Bearer token required - Get current user
 
-### Health (No token required)
-- GET /health - Basic check
-- GET /health/database - Database check
-- GET /health/postgis - PostGIS check
+- `POST /auth/register` — Create an account; no token required
+- `POST /auth/login` — Obtain a JWT token; no token required
+- `GET /auth/me` — Get the current user; Bearer token required
 
-### Projects (Token required, ownership enforced)
-- GET /projects - List user projects
-- POST /projects - Create project
-- GET/PATCH/DELETE /projects/{id} - Project CRUD
-- GET /projects/{id}/sites - List sites
-- POST /projects/{id}/sites - Create site with polygon
-- GET/PATCH/DELETE /projects/{id}/sites/{siteId} - Site CRUD
+### Health
 
-### Metrics & Analytics (Token required, ownership enforced)
-- GET/POST /projects/{pid}/sites/{sid}/metrics - List/create metrics
-- GET/PATCH/DELETE /projects/{pid}/sites/{sid}/metrics/{mid} - Metric CRUD
-- GET .../metrics/{mid}/timeseries - Time-series data
-- GET /projects/{pid}/analytics/summary - Project summary
-- GET .../sites/{sid}/analytics/summary - Site summary
+- `GET /health` — Basic health check
+- `GET /health/database` — Database health check
+- `GET /health/postgis` — PostGIS health check
 
-All protected endpoints require Authorization: Bearer <token>.
+No token is required for health endpoints.
+
+### Projects and sites
+
+All of the following endpoints require a token and enforce ownership:
+
+- `GET /projects` — List the user's projects
+- `POST /projects` — Create a project
+- `GET/PATCH/DELETE /projects/{id}` — Project CRUD
+- `GET /projects/{id}/sites` — List sites
+- `POST /projects/{id}/sites` — Create a site with a polygon
+- `GET/PATCH/DELETE /projects/{id}/sites/{siteId}` — Site CRUD
+
+### Metrics and analytics
+
+All of the following endpoints require a token and enforce ownership:
+
+- `GET/POST /projects/{pid}/sites/{sid}/metrics` — List or create metrics
+- `GET/PATCH/DELETE /projects/{pid}/sites/{sid}/metrics/{mid}` — Metric CRUD
+- `GET .../metrics/{mid}/timeseries` — Time-series data
+- `GET /projects/{pid}/analytics/summary` — Project summary
+- `GET .../sites/{sid}/analytics/summary` — Site summary
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <token>
+```
 
 ## Docker Setup
 
-docker-compose.yml provides PostgreSQL 16 + PostGIS 3.4:
+`docker-compose.yml` provides PostgreSQL 16 with PostGIS 3.4.
 
-`ash
-docker-compose up -d   # Start
-docker-compose down     # Stop
-docker-compose down -v  # Stop and remove volume
-`
+```bash
+docker compose up -d   # Start
+docker compose down     # Stop
+docker compose down -v  # Stop and remove the volume
+```
 
-Starts database only. Application runs locally.
+Docker starts the database only. The application runs locally.
 
 ## CI/CD
 
-GitHub Actions (.github/workflows/ci.yml) on push/PR to main:
+GitHub Actions in `.github/workflows/ci.yml` run on pushes and pull requests targeting `main`.
 
-**Frontend job:**
-1. Node 20 + npm cache
-2. npm ci
-3. Metric helper tests
-4. Vitest tests (jsdom, mocked API, no Mapbox token)
-5. ESLint
-6. Production build
+### Frontend job
 
-**Backend job:**
-1. Python 3.13 + pip cache
-2. pip install -r requirements.txt
-3. Unit tests (79 tests, mocked DB)
-4. Compile check
+1. Set up Node.js 20 and npm cache.
+2. Run `npm ci`.
+3. Run metric helper tests.
+4. Run Vitest tests with jsdom and mocked APIs.
+5. Run ESLint.
+6. Build the production frontend.
 
-Permissions: contents: read. No deployment.
+### Backend job
+
+1. Set up Python 3.13 and pip cache.
+2. Install dependencies from `requirements.txt`.
+3. Run unit tests with a mocked database.
+4. Run the compile check.
+
+The workflow has `contents: read` permissions and does not perform deployment.
 
 ## Testing
 
-**Frontend:**
-`ash
+### Frontend
+
+```bash
 cd client
 npm run test      # Vitest
 npm run test:all  # All tests
 npm run lint      # ESLint
-npm run build     # Build
-`
+npm run build     # Production build
+```
 
-**Backend:**
-`ash
+### Backend
+
+```bash
 cd server
 python -m unittest discover -s tests -v
-`
+```
 
-- Frontend: 71 tests, jsdom, mocked API
-- Backend: 79 tests, mocked DB sessions
+The repository currently documents 71 frontend tests and 79 backend tests. Frontend tests use jsdom and mocked APIs; backend tests use mocked database sessions.
 
 ## Deployment
 
-Not specified in repository. Production needs:
-- PostgreSQL 16 + PostGIS 3.4
-- Production ASGI server
-- Static file serving for built frontend
-- Secure env vars (never commit .env)
-- CORS configured for production URL
-- Strong JWT_SECRET_KEY (32+ chars)
-- alembic upgrade head during deploy
+Production deployment details are not specified in the repository. A production deployment needs:
+
+- PostgreSQL 16 with PostGIS 3.4
+- A production ASGI server
+- Static-file serving for the built frontend
+- Secure environment variables; never commit `.env` files
+- CORS configured for the production frontend URL
+- A strong `JWT_SECRET_KEY` with at least 32 characters
+- `alembic upgrade head` during deployment
 
 ## Important Notes
 
-- JWT tokens expire (default 30 min); /auth/me requires valid Bearer token
-- Users can only access their own projects
-- PostGIS required for site boundaries; must be valid GeoJSON Polygons
-- Mapbox requires VITE_MAPBOX_ACCESS_TOKEN for production; tests use mocks
-- CORS configured via FRONTEND_URL
-- Backend tests use mocked DB; PostgreSQL only needed for runtime
+- JWT tokens expire after 30 minutes by default; `/auth/me` requires a valid Bearer token.
+- Users can access only their own projects.
+- PostGIS is required for site boundaries, which must be valid GeoJSON polygons.
+- `VITE_MAPBOX_ACCESS_TOKEN` is required for production maps; tests use mocks.
+- CORS is configured through `FRONTEND_URL`.
+- Backend tests use a mocked database; PostgreSQL is required at runtime.
 
 ## License
 
