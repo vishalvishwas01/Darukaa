@@ -123,6 +123,27 @@ class RegistrationApiTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     UserRegistration.model_validate(payload)
 
+    def test_client_cannot_choose_admin_role(self) -> None:
+        with self.assertRaises(ValueError):
+            UserRegistration.model_validate(
+                {
+                    "name": "Asha",
+                    "email": "asha@example.com",
+                    "password": "a-secure-password",
+                    "role": "admin",
+                }
+            )
+
+    def test_password_over_72_utf8_bytes_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            UserRegistration.model_validate(
+                {
+                    "name": "Asha",
+                    "email": "asha@example.com",
+                    "password": "é" * 37,
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

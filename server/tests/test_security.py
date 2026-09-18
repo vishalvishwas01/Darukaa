@@ -43,6 +43,9 @@ class PasswordSecurityTests(unittest.TestCase):
         self.assertFalse(verify_password("valid password", "not a bcrypt hash"))
         self.assertFalse(verify_password("x" * 73, password_hash))
 
+    def test_invalid_hash_does_not_raise(self) -> None:
+        self.assertFalse(verify_password("valid password", "$2b$invalid"))
+
     def test_passwords_over_bcrypt_limit_are_rejected_when_hashing(self) -> None:
         with self.assertRaises(ValueError):
             hash_password("x" * 73)
@@ -84,6 +87,24 @@ class AccessTokenSecurityTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             decode_access_token(invalid_token)
+
+    def test_invalid_token_format_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            decode_access_token("not-a-jwt")
+
+    def test_missing_expiration_is_rejected(self) -> None:
+        token = jwt.encode(
+            {
+                "sub": "user-id-123",
+                "iat": 1_900_000_000,
+                "token_type": "access",
+            },
+            self.settings.jwt_secret_key,
+            algorithm=self.settings.jwt_algorithm,
+        )
+
+        with self.assertRaises(ValueError):
+            decode_access_token(token)
 
     def test_missing_subject_is_rejected(self) -> None:
         token = jwt.encode(

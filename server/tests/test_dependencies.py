@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -8,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import get_current_user, require_admin
 from app.core.security import create_access_token
+from app.db.session import get_db
 from app.models.user import User
 
 
@@ -24,6 +26,9 @@ class DependencySession:
 
     def rollback(self) -> None:
         self.rollback_called = True
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def make_user(*, is_active: bool = True, role: str = "user") -> User:
@@ -43,6 +48,15 @@ def credentials_for(token: str, scheme: str = "Bearer") -> HTTPAuthorizationCred
 
 
 class AuthenticationDependencyTests(unittest.TestCase):
+    def test_canonical_database_dependency_closes_session(self) -> None:
+        session = DependencySession()
+        with patch("app.db.session.SessionLocal", return_value=session):
+            database = get_db()
+            self.assertIs(next(database), session)
+            database.close()
+
+        self.assertTrue(session.closed)
+
     def test_missing_token_is_rejected(self) -> None:
         with self.assertRaises(HTTPException) as context:
             get_current_user(None, DependencySession())
@@ -54,6 +68,17 @@ class AuthenticationDependencyTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as context:
             get_current_user(
                 credentials_for("not-a-token"),
+                DependencySession(),
+            )
+
+        self.assertEqual(context.exception.status_code, 401)
+
+    def test_malformed_authorization_scheme_is_rejected(self) -> None:
+        token = create_access_token(make_user().id)
+
+        with self.assertRaises(HTTPException) as context:
+            get_current_user(
+                credentials_for(token, scheme="Basic"),
                 DependencySession(),
             )
 

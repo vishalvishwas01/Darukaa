@@ -1,4 +1,3 @@
-from collections.abc import Generator
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -8,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
-from app.db.session import SessionLocal
+from app.db.session import get_db
 from app.models.user import User
 
 
@@ -21,15 +20,6 @@ def _unauthorized() -> HTTPException:
         detail="Could not validate authentication credentials.",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
-
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def get_current_user(
