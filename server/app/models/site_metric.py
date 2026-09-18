@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +11,14 @@ from app.db.base import Base
 
 class SiteMetric(Base):
     __tablename__ = "site_metrics"
+    __table_args__ = (
+        Index(
+            "ix_site_metrics_site_metric_recorded_at",
+            "site_id",
+            "metric_name",
+            "recorded_at",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -22,7 +30,6 @@ class SiteMetric(Base):
         UUID(as_uuid=True),
         ForeignKey("sites.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
 
     metric_name: Mapped[str] = mapped_column(

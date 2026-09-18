@@ -1,0 +1,61 @@
+.map-frame {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #dfe8dc;
+}
+
+.map-container {
+  width: 100%;
+  min-height: 360px;
+}
+
+.map-loading,
+.map-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(244, 246, 240, .9);
+  font: 600 .78rem/1.45 ui-sans-serif, system-ui, sans-serif;
+}
+
+.map-message {
+  position: relative;
+  min-height: 360px;
+  border: 1px dashed #bdcbbb;
+}
+
+.map-message strong {
+  color: var(--ink);
+}
+
+.map-instructions {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  max-width: 300px;
+  padding: 9px 11px;
+  color: var(--moss-dark);
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 3px 14px rgba(24, 37, 31, .12);
+  font: 600 .68rem/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+
+.mapboxgl-ctrl-group {
+  border-radius: 2px;
+}
+
+@media (max-width: 760px) {
+  .map-frame,
+  .map-container,
+  .map-message {
+    min-height: 300px;
+  }
+}
