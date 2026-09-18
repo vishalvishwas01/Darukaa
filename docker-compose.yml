@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: darukaa-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: darukaa_db
+      POSTGRES_USER: darukaa_user
+      POSTGRES_PASSWORD: darukaa_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U darukaa_user -d darukaa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
