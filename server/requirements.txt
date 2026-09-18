@@ -83,5 +83,4 @@ watchfiles==1.2.0
 websockets==17.1
 
 psycopg==3.3.5
-
 psycopg-binary==3.3.5
