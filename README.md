@@ -1,5 +1,7 @@
 # Darukaa.Earth
 
+> **Live application:** [https://darukaa-five.vercel.app/login](https://darukaa-five.vercel.app/login)
+
 Darukaa.Earth is a geospatial data analytics platform for coordinating restoration work across living landscapes.
 
 ## Architecture
@@ -92,7 +94,7 @@ cd ../server
 python -m venv .venv
 
 # Windows
-.venv\Scripts\activate
+.venv\\Scripts\\activate
 
 # Linux/macOS
 source .venv/bin/activate
