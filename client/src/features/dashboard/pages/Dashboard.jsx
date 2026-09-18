@@ -1,10 +1,29 @@
+import { Link } from 'react-router-dom'
 import { ArrowUpRight, BarChart3, FolderKanban, MapPinned } from 'lucide-react'
 import useAuth from '../../../hooks/useAuth'
 
 const modules = [
-  { icon: FolderKanban, title: 'Projects', text: 'Organize restoration work and keep ownership clear.', state: 'Coming next' },
-  { icon: MapPinned, title: 'Geographic sites', text: 'Bring field boundaries into one shared workspace.', state: 'Coming next' },
-  { icon: BarChart3, title: 'Analytics', text: 'Track performance over time when your data is ready.', state: 'Coming next' },
+  {
+    icon: FolderKanban,
+    title: 'Projects',
+    text: 'Organize restoration work and keep ownership clear across projects.',
+    state: 'Explore',
+    to: '/projects',
+  },
+  {
+    icon: MapPinned,
+    title: 'Geographic sites',
+    text: "Bring field boundaries into one shared workspace inside each project.",
+    state: 'Explore',
+    to: '/projects',
+  },
+  {
+    icon: BarChart3,
+    title: 'Analytics',
+    text: 'Review site and project metrics where the data already lives.',
+    state: 'Explore',
+    to: '/projects',
+  },
 ]
 
 export default function Dashboard() {
@@ -33,16 +52,23 @@ export default function Dashboard() {
           <span className="section-count">03 modules</span>
         </div>
         <div className="module-grid">
-          {modules.map(({ icon: Icon, title, text, state }) => (
-            <article className="module-card" key={title}>
-              <div className="module-icon"><Icon size={21} /></div>
+          {modules.map(({ icon: Icon, title, text, state, to }) => (
+            <Link
+              key={title}
+              to={to}
+              className="module-card"
+              aria-label={`${state}: ${title}`}
+            >
+              <div className="module-icon" aria-hidden="true">
+                <Icon size={21} />
+              </div>
               <div className="module-card-copy">
                 <span className="module-state">{state}</span>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </div>
-              <ArrowUpRight className="module-arrow" size={20} />
-            </article>
+              <ArrowUpRight className="module-arrow" size={20} aria-hidden="true" />
+            </Link>
           ))}
         </div>
       </section>

@@ -9,6 +9,7 @@ import { normalizeApiError } from '../../../services/api'
 import SiteForm from '../components/SiteForm'
 import MapView from '../components/MapView'
 import SiteAnalyticsSection from '../../analytics/components/SiteAnalyticsSection'
+import SiteMetricRecords from '../../metrics/components/SiteMetricRecords'
 
 const formatDate = (value) => value ? new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(value)) : '—'
 
@@ -21,6 +22,8 @@ export default function SiteDetails() {
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [analyticsRefreshToken, setAnalyticsRefreshToken] = useState(0)
+  const [preferredMetric, setPreferredMetric] = useState('')
 
   const load = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -37,6 +40,13 @@ export default function SiteDetails() {
     try { await deleteSite(projectId, siteId); navigate(`/projects/${projectId}`, { replace: true }) } catch (requestError) { setError(normalizeApiError(requestError)); setIsDeleting(false) }
   }
 
+  // Metric mutations refresh the site summary and the time-series chart without a page reload.
+  // The selected metric and any applied date range live inside SiteAnalyticsSection, so they survive the refresh.
+  const handleMetricsChanged = useCallback((metricName) => {
+    if (metricName) setPreferredMetric(metricName)
+    setAnalyticsRefreshToken((value) => value + 1)
+  }, [])
+
   if (isLoading) return <LoadingState label="Loading site..." />
   if (error && !site) return <ErrorState message={error} onRetry={load} />
   if (!site) return <ErrorState message="Site not found." onRetry={load} />
@@ -47,7 +57,8 @@ export default function SiteDetails() {
     {error && <ErrorState message={error} onRetry={load} />}
     <div className="detail-meta"><div><span>Area</span><strong>{site.area_hectares ?? '—'} hectares</strong></div><div><span>Created</span><strong>{formatDate(site.created_at)}</strong></div><div><span>Updated</span><strong>{formatDate(site.updated_at)}</strong></div></div>
     <section className="site-insight-grid"><article className="placeholder-panel map-panel"><Map size={23} /><span className="eyebrow">Site boundary</span><h2>Read-only map</h2>{site.boundary ? <MapView boundary={site.boundary} /> : <p>No boundary has been saved for this site.</p>}</article></section>
-    <SiteAnalyticsSection projectId={projectId} siteId={siteId} />
+    <SiteMetricRecords projectId={projectId} siteId={siteId} onMetricsChanged={handleMetricsChanged} />
+    <SiteAnalyticsSection projectId={projectId} siteId={siteId} refreshToken={analyticsRefreshToken} preferredMetric={preferredMetric} />
     {isEditing && <Modal title="Edit site" description="Area is recalculated by the backend when the boundary changes." onClose={() => setIsEditing(false)}><SiteForm projectId={projectId} site={site} onCancel={() => setIsEditing(false)} onSuccess={(value) => { setSite(value); setIsEditing(false) }} /></Modal>}
     {confirmDelete && <ConfirmDialog title={`Delete ${site.name}?`} description="This permanently removes the site and its associated metric records." isLoading={isDeleting} onClose={() => setConfirmDelete(false)} onConfirm={remove} />}
   </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getSiteAnalyticsSummary, getSiteTimeSeries } from '../../../api/analyticsApi'
 import { normalizeApiError } from '../../../services/api'
 import AnalyticsSummaryCards from './AnalyticsSummaryCards'
@@ -6,28 +6,48 @@ import { AnalyticsEmpty, AnalyticsError, AnalyticsLoading } from './AnalyticsSta
 import TimeSeriesChart from './TimeSeriesChart'
 import { dateRangeParams, formatAnalyticsDate, formatMetricValue, validateDateRange } from '../utils/analyticsFormat'
 
-export default function SiteAnalyticsSection({ projectId, siteId }) {
+/**
+ * `refreshToken` is bumped by the parent after a metric record is created, updated or deleted.
+ * `preferredMetric` lets a newly created metric name become the selected metric.
+ * Both are optional so the section keeps working standalone.
+ */
+export default function SiteAnalyticsSection({ projectId, siteId, refreshToken = 0, preferredMetric = '' }) {
   const [summary, setSummary] = useState(null)
   const [summaryError, setSummaryError] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [series, setSeries] = useState(null)
   const [seriesError, setSeriesError] = useState('')
   const [seriesLoading, setSeriesLoading] = useState(false)
   const [selectedMetric, setSelectedMetric] = useState('')
+  const [dismissedHint, setDismissedHint] = useState('')
   const [draftRange, setDraftRange] = useState({ startDate: '', endDate: '' })
   const [appliedRange, setAppliedRange] = useState({ startDate: '', endDate: '' })
   const [rangeError, setRangeError] = useState('')
+  const hasSummaryRef = useRef(false)
+  const lastRefreshTokenRef = useRef(0)
+  const summaryRequestRef = useRef(0)
+  const seriesRequestRef = useRef(0)
 
   const loadSummary = useCallback(async () => {
-    setSummaryLoading(true)
+    const requestId = summaryRequestRef.current + 1
+    summaryRequestRef.current = requestId
     setSummaryError('')
+    setSummaryLoading(!hasSummaryRef.current)
+    setIsRefreshing(true)
     try {
       const response = await getSiteAnalyticsSummary(projectId, siteId)
+      if (requestId !== summaryRequestRef.current) return
+      hasSummaryRef.current = true
       setSummary(response.data)
     } catch (requestError) {
+      if (requestId !== summaryRequestRef.current) return
       setSummaryError(normalizeApiError(requestError))
     } finally {
-      setSummaryLoading(false)
+      if (requestId === summaryRequestRef.current) {
+        setSummaryLoading(false)
+        setIsRefreshing(false)
+      }
     }
   }, [projectId, siteId])
 
@@ -36,29 +56,56 @@ export default function SiteAnalyticsSection({ projectId, siteId }) {
     load()
   }, [loadSummary])
 
-  const availableMetrics = summary?.available_metric_names || []
-  const activeMetric = availableMetrics.includes(selectedMetric) ? selectedMetric : availableMetrics[0] || ''
+  // A metric mutation refreshes the summary; the rebuilt metric list then refreshes the chart.
+  useEffect(() => {
+    if (refreshToken === lastRefreshTokenRef.current) return
+    lastRefreshTokenRef.current = refreshToken
+    const refresh = async () => { await loadSummary() }
+    refresh()
+  }, [loadSummary, refreshToken])
+
+  // Memoized so the chart request below is only rebuilt when the summary actually changes.
+  const availableMetrics = useMemo(() => summary?.available_metric_names || [], [summary])
+
+  // A newly created or edited metric is offered as a hint; choosing a metric manually dismisses it.
+  const activeMetric = useMemo(() => {
+    if (preferredMetric && preferredMetric !== dismissedHint && availableMetrics.includes(preferredMetric)) return preferredMetric
+    return availableMetrics.includes(selectedMetric) ? selectedMetric : availableMetrics[0] || ''
+  }, [availableMetrics, dismissedHint, preferredMetric, selectedMetric])
+
+  // Rebuilt whenever the site's metric summary changes (so also after a mutation), which refetches
+  // the chart with the preserved metric selection and date range.
+  const seriesParams = useMemo(() => ({
+    metric_name: availableMetrics.includes(activeMetric) ? activeMetric : '',
+    ...dateRangeParams(appliedRange.startDate, appliedRange.endDate),
+  }), [activeMetric, appliedRange.endDate, appliedRange.startDate, availableMetrics])
+
+  const selectMetric = (metricName) => {
+    setDismissedHint(preferredMetric)
+    setSelectedMetric(metricName)
+  }
 
   const loadSeries = useCallback(async () => {
-    if (!activeMetric) {
+    const requestId = seriesRequestRef.current + 1
+    seriesRequestRef.current = requestId
+    if (!seriesParams.metric_name) {
       setSeries(null)
       return
     }
     setSeriesLoading(true)
     setSeriesError('')
     try {
-      const response = await getSiteTimeSeries(projectId, siteId, {
-        metric_name: activeMetric,
-        ...dateRangeParams(appliedRange.startDate, appliedRange.endDate),
-      })
+      const response = await getSiteTimeSeries(projectId, siteId, seriesParams)
+      if (requestId !== seriesRequestRef.current) return
       setSeries(response.data)
     } catch (requestError) {
+      if (requestId !== seriesRequestRef.current) return
       setSeriesError(normalizeApiError(requestError))
       setSeries(null)
     } finally {
-      setSeriesLoading(false)
+      if (requestId === seriesRequestRef.current) setSeriesLoading(false)
     }
-  }, [activeMetric, appliedRange.endDate, appliedRange.startDate, projectId, siteId])
+  }, [projectId, seriesParams, siteId])
 
   useEffect(() => {
     const load = async () => loadSeries()
@@ -86,6 +133,7 @@ export default function SiteAnalyticsSection({ projectId, siteId }) {
 
   return <section className="analytics-section">
     <div className="analytics-section-heading"><div><span className="eyebrow">Site analytics</span><h2>Performance over time</h2><p>Measured records from this site, with no synthetic values.</p></div></div>
+    {isRefreshing && !summaryLoading && <p className="analytics-refreshing" role="status">Refreshing analytics after the metric change...</p>}
     {summaryLoading && <AnalyticsLoading label="Loading site summary..." />}
     {!summaryLoading && summaryError && <AnalyticsError message={summaryError} onRetry={loadSummary} />}
     {!summaryLoading && !summaryError && summary && summary.total_metric_records === 0 && <AnalyticsEmpty>No metric records are available for this site yet.</AnalyticsEmpty>}
@@ -94,7 +142,7 @@ export default function SiteAnalyticsSection({ projectId, siteId }) {
       <div className="analytics-workbench">
         <div className="analytics-controls">
           <label className="field-label" htmlFor="metric-selector">Metric</label>
-          <select id="metric-selector" className="text-input" value={activeMetric} onChange={(event) => setSelectedMetric(event.target.value)}>
+          <select id="metric-selector" className="text-input" value={activeMetric} onChange={(event) => selectMetric(event.target.value)}>
             {availableMetrics.map((metricName) => <option key={metricName} value={metricName}>{metricName}</option>)}
           </select>
           {activeSummary && <span className="analytics-unit">{activeSummary.unit} · {activeSummary.record_count} records</span>}
