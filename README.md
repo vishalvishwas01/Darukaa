@@ -1,88 +1,190 @@
 # Darukaa.Earth
 
-Geospatial data analytics platform for restoration work coordination.
+Darukaa.Earth is a geospatial data analytics platform for coordinating restoration work across living landscapes.
 
-## CI
+## Tech Stack
 
-This repository uses GitHub Actions for continuous integration.
+- **Frontend**: React 19, React Router 7, Vite 8, Tailwind CSS 4, Mapbox GL JS 3, Chart.js 4
+- **Backend**: FastAPI, SQLAlchemy 2, GeoAlchemy2, PostgreSQL/PostGIS, Alembic, Pydantic, python-jose, bcrypt
+- **Testing**: Vitest, React Testing Library, jsdom (frontend); unittest (backend)
+- **Build/Dev**: Node.js 20, Python 3.13, npm, pip, Uvicorn
 
-**Workflow file:** `.github/workflows/ci.yml`
+## Project Structure
 
-**Triggers:**
-- Push to `main`
-- Pull request targeting `main`
+```
+Darukaa/
+├── .github/workflows/ci.yml
+├── client/src/{api,assets,components,context,features,hooks,layouts,lib,pages,routes,services,test}
+├── server/app/{api/v1/endpoints,core,db,models,schemas,services}
+├── server/migrations/versions/
+├── docker-compose.yml
+└── README.md
+```
 
-### What CI validates
+## Database and Schema
+
+PostgreSQL 16 with PostGIS 3.4 extension. Uses Alembic for migrations.
+
+### Entities
+
+- **Users**: id (UUID), name, email (unique), password_hash (bcrypt), role, is_active, timestamps
+- **Projects**: id (UUID), owner_id (UUID, FK users), name, description, project_type, status (active/archived/draft), timestamps
+- **Sites**: id (UUID), project_id (UUID, FK projects, cascade), name, description, boundary (PostGIS POLYGON SRID 4326), area_hectares (numeric), timestamps
+- **Site Metrics**: id (UUID), site_id (UUID, FK sites, cascade), metric_name, metric_value (numeric 15,4), unit, recorded_at, created_at
+
+## Local Setup
+
+### Prerequisites
+Node.js 20+, Python 3.13+, PostgreSQL 16+PostGIS 3.4, npm
+
+### 1. Clone
+```bash
+git clone https://github.com/vishalvishwas01/Darukaa.git && cd Darukaa
+```
+
+### 2. Frontend Dependencies
+```bash
+cd client && npm ci
+```
+
+### 3. Backend Dependencies
+```bash
+cd ../server && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+```
+
+### 4. Environment
+```bash
+copy .env.example .env
+```
+Edit `.env` with actual values (see [Environment Variables](#environment-variables)).
+
+### 5. Database
+**Option A - Docker:**
+```bash
+cd .. && docker-compose up -d
+```
+**Option B - Manual:**
+1. Install PostgreSQL 16 + PostGIS 3.4
+2. Create database and user, grant privileges
+3. Enable PostGIS: `CREATE EXTENSION postgis;`
+
+### 6. Migrations
+```bash
+cd server && alembic upgrade head
+```
+
+### 7. Start Backend
+```bash
+cd server && uvicorn app.main:app --reload --port 8000
+```
+API at `http://localhost:8000`, docs at `http://localhost:8000/docs`
+
+### 8. Start Frontend
+```bash
+cd client && npm run dev
+```
+Frontend at `http://localhost:5173`
+
+## Environment Variables
+
+Backend `.env` file (see `.env.example`):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `APP_NAME` | No | Application name |
+| `APP_VERSION` | No | Version string |
+| `DEBUG` | No | Debug mode (true/false) |
+| `DATABASE_URL` | **Yes** | PostgreSQL+PostGIS connection URL |
+| `FRONTEND_URL` | No | Frontend URL for CORS |
+| `JWT_SECRET_KEY` | **Yes** | JWT signing secret (min 32 chars) |
+| `JWT_ALGORITHM` | No | JWT algorithm (default HS256) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token expiry in minutes |
+
+Never commit `.env` files. Use strong random secrets in production.
+
+## API Overview
+
+Base URL: `/api/v1`
+
+### Authentication (No token required)
+- `POST /auth/register` - Create account
+- `POST /auth/login` - Get JWT token
+- `GET /auth/me` - Get current user (requires token)
+
+### Health (No token required)
+- `GET /health` - Basic health check
+- `GET /health/database` - Database check
+- `GET /health/postgis` - PostGIS check
+
+### Projects (Requires token, ownership enforced)
+- `GET /projects` - List user's projects
+- `POST /projects` - Create project
+- `GET /projects/{id}` - Get project
+- `PATCH /projects/{id}` - Update project
+- `DELETE /projects/{id}` - Delete project
+- `GET /projects/{id}/sites` - List sites
+- `POST /projects/{id}/sites` - Create site with polygon
+- `GET/PATCH/DELETE /projects/{id}/sites/{siteId}` - Site CRUD
+
+### Metrics & Analytics (Requires token, ownership enforced)
+- `GET/POST /projects/{pid}/sites/{sid}/metrics` - List/create metrics
+- `GET/PATCH/DELETE /projects/{pid}/sites/{sid}/metrics/{mid}` - Metric CRUD
+- `GET /projects/{pid}/sites/{sid}/metrics/{mid}/timeseries` - Time-series data
+- `GET /projects/{pid}/analytics/summary` - Project analytics
+- `GET /projects/{pid}/sites/{sid}/analytics/summary` - Site analytics
+
+All protected endpoints require `Authorization: Bearer <token>` header.
+
+## Docker Setup
+
+`docker-compose.yml` provides PostgreSQL 16 + PostGIS 3.4:
+
+```bash
+docker-compose up -d
+```
+
+Starts database only. Application runs locally. Stop with `docker-compose down`.
+
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) on push/PR to main:
 
 **Frontend job:**
-- Installs dependencies with `npm ci`
-- Runs metric helper verification tests
-- Runs Vitest unit tests (jsdom, no real backend/browser/Mapbox)
-- Runs ESLint
-- Builds the production Vite bundle
+1. Node 20 setup
+2. `npm ci`
+3. Metric helper tests
+4. Vitest unit tests (jsdom, no real backend/browser/Mapbox)
+5. ESLint
+6. Production build
 
 **Backend job:**
-- Installs Python dependencies from `server/requirements.txt`
-- Runs the unittest suite (`python -m unittest discover -s tests -v`)
-- Runs compileall verification (`python -m compileall -q app tests`)
+1. Python 3.13 setup
+2. `pip install -r requirements.txt`
+3. Unit tests (79 tests, mocked DB, no PostgreSQL needed)
+4. Compile check
 
-### Frontend checks
+Uses least-privilege permissions (`contents: read`). No deployment.
 
-All frontend tests run in jsdom and do not require:
-- A real backend
-- A real browser
-- A real Mapbox token
-- External API calls
+## Deployment
 
-CI provides safe placeholder environment values where needed. No real credentials are used.
+Not specified in the repository. Production deployment would need:
+- PostgreSQL 16 + PostGIS 3.4
+- Production WSGI server for backend
+- Static file serving for built frontend
+- Secure environment variables (never commit `.env`)
+- CORS configured for production frontend URL
+- Strong JWT secret (32+ chars)
+- `alembic upgrade head` during deployment
 
-### Backend checks
+## Important Notes
 
-Backend tests use mocked database sessions and do not require a running PostgreSQL/PostGIS instance.
+- Backend tests use mocked DB sessions; no PostgreSQL needed for tests
+- Frontend tests use jsdom; no real browser or Mapbox token needed
+- Mapbox integration exists but requires valid token for production
+- CORS allows requests from `FRONTEND_URL`
+- Site ownership enforced: users can only access their own projects
 
-CI sets safe, non-production environment variables for the test run, including a placeholder `JWT_SECRET_KEY` that is not a real secret.
+## License
 
-### Viewing results
+License information has not been specified.
 
-CI status is visible on the GitHub Actions tab for the repository:
-- https://github.com/vishalvishwas01/Darukaa/actions
-
-### Badge
-
-```markdown
-![CI](https://github.com/vishalvishwas01/Darukaa/actions/workflows/ci.yml/badge.svg)
-```
-
-## Local verification
-
-Frontend:
-```bash
-cd client
-npm ci
-npm run test:all
-npm run lint
-npm run build
-```
-
-Backend:
-```bash
-cd server
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-# source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt
-set DATABASE_URL=postgresql+psycopg://darukaa_test:darukaa_test@localhost:5432/darukaa_test
-set JWT_SECRET_KEY=ci-only-placeholder-secret-key-minimum-32-chars
-set DEBUG=true
-python -m unittest discover -s tests -v
-python -m compileall -q app tests
-```
-
-### Notes
-
-- Backend tests use mocked database sessions and do not require PostgreSQL.
-- Frontend tests use jsdom and do not require a real browser or Mapbox token.
-- The workflow uses Node 20 and Python 3.13 on Ubuntu runners.
-- This CI pipeline validates code quality only and does not deploy anything.
-
-![CI](https://github.com/vishalvishwas01/Darukaa/actions/workflows/ci.yml/badge.svg)
